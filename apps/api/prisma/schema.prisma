@@ -1,0 +1,271 @@
+// Prisma Schema for FoodBridge AI (MongoDB Version)
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  email        String    @unique
+  passwordHash String
+  phone        String
+  role         String    // DONOR, NGO, VOLUNTEER, ADMIN
+  avatarUrl    String?
+  isVerified   Boolean   @default(false)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  memberships       OrganizationMember[]
+  donationsCreated  FoodDonation[]       @relation("UserDonations")
+  volunteerProfile  VolunteerProfile?
+  pickups           Pickup[]             @relation("VolunteerPickups")
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  issueReports      IssueReport[]
+  reviews           Review[]
+}
+
+model Organization {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  type           String    // RESTAURANT, HOSTEL_MESS, CAFETERIA, EVENT_ORGANIZER, NGO_SHELTER, ORPHANAGE, COMMUNITY_KITCHEN
+  description    String?
+  address        String
+  city           String
+  latitude       Float
+  longitude      Float
+  phone          String
+  email          String
+  verifiedStatus String    @default("PENDING") // PENDING, VERIFIED, REJECTED
+  fssaiLicense   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  members        OrganizationMember[]
+  donorProfile   DonorProfile?
+  ngoProfile     NGOProfile?
+  donations      FoodDonation[]       @relation("OrgDonations")
+  demands        NGODemand[]          @relation("OrgDemands")
+  matches        DonationMatch[]      @relation("OrgMatches")
+  requests       DonationRequest[]    @relation("OrgRequests")
+}
+
+model OrganizationMember {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  userId         String       @db.ObjectId
+  roleInOrg      String       @default("MEMBER") // ADMIN, MEMBER
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@unique([organizationId, userId])
+}
+
+model DonorProfile {
+  id                    String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId        String       @unique @db.ObjectId
+  businessType          String?      // Fine Dining, Buffet, College Mess, Catering
+  typicalDailySurplusKg Float        @default(0)
+  operatingHours        String?
+  preferredPickupTimes  String?
+
+  organization          Organization @relation(fields: [organizationId], references: [id])
+}
+
+model NGOProfile {
+  id                     String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId         String       @unique @db.ObjectId
+  capacityPeople         Int          @default(50)
+  dailyMealsCapacity     Int          @default(100)
+  serviceRadiusKm        Float        @default(15.0)
+  dietaryPreferences     String       @default("ANY") // VEG_ONLY, ANY
+  refrigerationAvailable Boolean      @default(false)
+
+  organization           Organization @relation(fields: [organizationId], references: [id])
+}
+
+model VolunteerProfile {
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId                String   @unique @db.ObjectId
+  vehicleType           String   @default("TWO_WHEELER") // TWO_WHEELER, FOUR_WHEELER, VAN
+  maxCapacityKg         Float    @default(30.0)
+  isAvailable           Boolean  @default(true)
+  activeDeliveriesCount Int      @default(0)
+  totalDeliveries       Int      @default(0)
+
+  user                  User     @relation(fields: [userId], references: [id])
+}
+
+model FoodDonation {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  donorId             String   @db.ObjectId
+  donorOrgId          String?  @db.ObjectId
+  foodName            String
+  category            String   // COOKED_MEALS, RAW_PRODUCE, BAKERY, PACKAGED_GOODS, DAIRY, BEVERAGES
+  quantity            Float
+  quantityUnit        String   @default("KG") // KG, LITERS, PACKETS, TRAYS
+  estimatedMeals      Int      @default(0)
+  vegType             String   // VEGETARIAN, NON_VEGETARIAN, VEGAN
+  allergens           String   @default("[]")
+  preparationTime     DateTime
+  availableFrom       DateTime
+  consumeBefore       DateTime
+  packagingStatus     String   // SEALED_CONTAINERS, BULK_TRAYS, INDIVIDUAL_PACKS, UNPACKAGED
+  imageUrl            String?
+  pickupAddress       String
+  latitude            Float
+  longitude           Float
+  specialInstructions String?
+  status              String   @default("AVAILABLE")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  donor               User              @relation("UserDonations", fields: [donorId], references: [id])
+  donorOrg            Organization?     @relation("OrgDonations", fields: [donorOrgId], references: [id])
+  matches             DonationMatch[]
+  requests            DonationRequest[]
+  pickup              Pickup?
+  reviews             Review[]
+  issues              IssueReport[]
+}
+
+model NGODemand {
+  id                String       @id @default(auto()) @map("_id") @db.ObjectId
+  ngoId             String?      @db.ObjectId
+  ngoOrgId          String       @db.ObjectId
+  foodCategory      String
+  requestedQuantity Float
+  requestedUnit     String       @default("KG")
+  urgency           String       @default("MEDIUM")
+  requiredBefore    DateTime
+  status            String       @default("ACTIVE")
+  createdAt         DateTime     @default(now())
+
+  ngoOrg            Organization @relation("OrgDemands", fields: [ngoOrgId], references: [id])
+}
+
+model DonationMatch {
+  id                   String       @id @default(auto()) @map("_id") @db.ObjectId
+  donationId           String       @db.ObjectId
+  ngoOrgId             String       @db.ObjectId
+  score                Float
+  distanceKm           Float
+  quantityFit          Float
+  urgencyScore         Float
+  foodCompatibility    Float
+  expiryScore          Float
+  capacityScore        Float
+  recommendationReason String
+  status               String       @default("PENDING")
+  createdAt            DateTime     @default(now())
+
+  donation             FoodDonation @relation(fields: [donationId], references: [id])
+  ngoOrg               Organization @relation("OrgMatches", fields: [ngoOrgId], references: [id])
+
+  @@unique([donationId, ngoOrgId])
+}
+
+model DonationRequest {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  donationId  String       @db.ObjectId
+  ngoOrgId    String       @db.ObjectId
+  message     String?
+  status      String       @default("PENDING")
+  createdAt   DateTime     @default(now())
+
+  donation    FoodDonation @relation(fields: [donationId], references: [id])
+  ngoOrg      Organization @relation("OrgRequests", fields: [ngoOrgId], references: [id])
+}
+
+model Pickup {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  donationId    String       @unique @db.ObjectId
+  volunteerId   String?      @db.ObjectId
+  scheduledTime DateTime?
+  startedAt     DateTime?
+  pickedUpAt    DateTime?
+  status        String       @default("ASSIGNED")
+  pickupNotes   String?
+  createdAt     DateTime     @default(now())
+
+  donation      FoodDonation @relation(fields: [donationId], references: [id])
+  volunteer     User?        @relation("VolunteerPickups", fields: [volunteerId], references: [id])
+  delivery      Delivery?
+}
+
+model Delivery {
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  pickupId           String    @unique @db.ObjectId
+  destinationAddress String
+  latitude           Float
+  longitude          Float
+  deliveredAt        DateTime?
+  proofImageUrl      String?
+  receiverName       String?
+  deliveredQuantity  Float?
+  deliveryNotes      String?
+  status             String    @default("ON_WAY_TO_DESTINATION")
+  createdAt          DateTime  @default(now())
+
+  pickup             Pickup    @relation(fields: [pickupId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  title     String
+  message   String
+  type      String   @default("SYSTEM")
+  isRead    Boolean  @default(false)
+  dataJson  String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String?  @db.ObjectId
+  action      String
+  entityType  String
+  entityId    String?
+  detailsJson String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id])
+}
+
+model Review {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  donationId  String       @db.ObjectId
+  reviewerId  String       @db.ObjectId
+  rating      Int          @default(5)
+  comment     String?
+  createdAt   DateTime     @default(now())
+
+  donation    FoodDonation @relation(fields: [donationId], references: [id])
+  reviewer    User         @relation(fields: [reviewerId], references: [id])
+}
+
+model IssueReport {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  reporterId  String        @db.ObjectId
+  donationId  String?       @db.ObjectId
+  subject     String
+  description String
+  priority    String        @default("NORMAL")
+  status      String        @default("OPEN")
+  createdAt   DateTime      @default(now())
+
+  reporter    User          @relation(fields: [reporterId], references: [id])
+  donation    FoodDonation? @relation(fields: [donationId], references: [id])
+}
