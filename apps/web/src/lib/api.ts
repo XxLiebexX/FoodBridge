@@ -1,6 +1,6 @@
-import { demoStorage } from './demoStorage';
+import { demoStorage, DEMO_USERS } from './demoStorage';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? '/api' : 'http://localhost:5001/api');
 
 export class ApiError extends Error {
   public code?: string;
@@ -18,9 +18,30 @@ export class ApiError extends Error {
  * Real registered accounts bypass this completely and write directly to MongoDB.
  */
 function interceptDemoRequest(method: string, endpoint: string, body?: any): any | undefined {
-  if (!demoStorage.isDemoActive()) return undefined;
+  const isDemo = demoStorage.isDemoActive();
 
-  const cleanUrl = endpoint.replace(/^\/api/, '');
+  // Strip query parameters for endpoint matching
+  const urlWithoutQuery = endpoint.split('?')[0];
+  const cleanUrl = urlWithoutQuery.replace(/^\/api/, '');
+
+  // Intercept demo login if requested via API
+  if (method === 'POST' && cleanUrl === '/auth/login' && body?.email?.toLowerCase().endsWith('@foodbridge.ai')) {
+    const email = body.email.toLowerCase();
+    let role: 'donor' | 'ngo' | 'volunteer' | 'admin' = 'donor';
+    if (email.startsWith('ngo')) role = 'ngo';
+    else if (email.startsWith('vol')) role = 'volunteer';
+    else if (email.startsWith('admin')) role = 'admin';
+
+    const user = DEMO_USERS[role];
+    demoStorage.setDemoActive(true);
+    return {
+      user,
+      accessToken: `demo_access_token_${Date.now()}`,
+      refreshToken: `demo_refresh_token_${Date.now()}`
+    };
+  }
+
+  if (!isDemo) return undefined;
 
   // 1. DONATIONS
   if (method === 'POST' && cleanUrl === '/donations') {
@@ -30,8 +51,7 @@ function interceptDemoRequest(method: string, endpoint: string, body?: any): any
     return demoStorage.getDonationStats();
   }
   if (method === 'GET' && cleanUrl.startsWith('/donations')) {
-    const list = demoStorage.getDonations();
-    return { donations: list, total: list.length };
+    return demoStorage.getDonations();
   }
 
   // 2. DEMANDS & RECOMMENDATIONS
@@ -43,6 +63,12 @@ function interceptDemoRequest(method: string, endpoint: string, body?: any): any
   }
   if (method === 'GET' && cleanUrl === '/ngos/recommendations') {
     return demoStorage.getRecommendations();
+  }
+  if (method === 'GET' && cleanUrl.startsWith('/ngos/nearby')) {
+    return demoStorage.getNearbyNGOs();
+  }
+  if (method === 'GET' && cleanUrl === '/ngos') {
+    return demoStorage.getNearbyNGOs();
   }
   if (method === 'POST' && cleanUrl.match(/^\/ngos\/donations\/([^\/]+)\/accept$/)) {
     const id = cleanUrl.split('/')[3];
@@ -83,9 +109,51 @@ function interceptDemoRequest(method: string, endpoint: string, body?: any): any
     return { success: true };
   }
 
-  // 5. IMPACT OVERVIEW (Demo)
+  // 5. IMPACT OVERVIEW & ANALYTICS
   if (method === 'GET' && cleanUrl === '/impact/overview') {
     return demoStorage.getImpact();
+  }
+  if (method === 'GET' && cleanUrl === '/impact/trends') {
+    return demoStorage.getTrends();
+  }
+  if (method === 'GET' && cleanUrl === '/impact/leaderboards') {
+    return demoStorage.getLeaderboards();
+  }
+  if (method === 'GET' && cleanUrl === '/impact/badges') {
+    return demoStorage.getBadges();
+  }
+
+  // 6. ADMIN
+  if (method === 'GET' && cleanUrl.startsWith('/admin/organizations')) {
+    return demoStorage.getOrganizations();
+  }
+  if (method === 'PATCH' && cleanUrl.match(/^\/admin\/organizations\/([^\/]+)\/verify$/)) {
+    const id = cleanUrl.split('/')[3];
+    return demoStorage.verifyOrganization(id, body?.status);
+  }
+  if (method === 'GET' && cleanUrl === '/admin/users') {
+    return demoStorage.getUsers();
+  }
+  if (method === 'PATCH' && cleanUrl.match(/^\/admin\/users\/([^\/]+)\/status$/)) {
+    const id = cleanUrl.split('/')[3];
+    return demoStorage.toggleUserStatus(id, body?.isActive);
+  }
+  if (method === 'GET' && cleanUrl === '/admin/audit-logs') {
+    return demoStorage.getAuditLogs();
+  }
+  if (method === 'GET' && cleanUrl.startsWith('/admin/export/')) {
+    return 'id,type,created_at\n1,DEMO_EXPORT,2026-10-10';
+  }
+
+  // 7. AI INTELLIGENCE
+  if (method === 'GET' && cleanUrl === '/ai/metrics') {
+    return demoStorage.getAIMetrics();
+  }
+  if (method === 'GET' && cleanUrl.startsWith('/ai/forecasts')) {
+    return demoStorage.getAIForecasts();
+  }
+  if (method === 'POST' && cleanUrl === '/ai/predict/surplus') {
+    return demoStorage.predictSurplus(body);
   }
 
   return undefined;
@@ -128,10 +196,19 @@ async function request<T = any>(
 
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
-  const response = await fetch(url, {
-    ...options,
-    headers
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers
+    });
+  } catch (netErr: any) {
+    throw new ApiError(
+      'Live backend server is unreachable. For evaluation, please use the 1-Click Evaluator Demo Sign-In to run in browser storage.',
+      0,
+      'NETWORK_ERROR'
+    );
+  }
 
   if (!response.ok) {
     let errMessage = 'An unexpected error occurred';

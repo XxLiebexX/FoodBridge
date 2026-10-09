@@ -2,10 +2,10 @@
  * FoodBridge AI - Local Browser Storage Demo Engine
  * 
  * When a user logs in with a Demo Account (1-Click Evaluator or @foodbridge.ai),
- * all generated data (donations, demands, pickups, deliveries, notifications)
- * is isolated and stored ONLY in the browser's localStorage.
+ * all operations and state (donations, demands, pickups, deliveries, notifications,
+ * AI forecasts, analytics, and admin records) run 100% inside browser localStorage.
  * 
- * Main / Real registered accounts bypass this entirely and persist directly to MongoDB.
+ * Main / Real registered accounts persist directly to MongoDB.
  */
 
 export interface DemoDonation {
@@ -77,13 +77,67 @@ export interface DemoNotification {
   createdAt: string;
 }
 
+export const DEMO_USERS = {
+  donor: {
+    id: 'demo-donor-user-1',
+    name: 'Delhi Spice Kitchen (Demo)',
+    email: 'donor@foodbridge.ai',
+    phone: '+91 98110 00001',
+    role: 'DONOR' as const,
+    isVerified: true,
+    organizationId: 'demo-org-donor-1',
+    organization: {
+      id: 'demo-org-donor-1',
+      name: 'Delhi Spice Kitchen',
+      type: 'RESTAURANT',
+      city: 'Delhi',
+      address: 'Connaught Place, Central Delhi'
+    }
+  },
+  ngo: {
+    id: 'demo-ngo-user-1',
+    name: 'Robin Hood Army Hub (Demo)',
+    email: 'ngo@foodbridge.ai',
+    phone: '+91 98110 00002',
+    role: 'NGO' as const,
+    isVerified: true,
+    organizationId: 'demo-org-ngo-1',
+    organization: {
+      id: 'demo-org-ngo-1',
+      name: 'Robin Hood Army Hub',
+      type: 'COMMUNITY_KITCHEN',
+      city: 'Delhi',
+      address: 'Kashmere Gate, North Delhi'
+    }
+  },
+  volunteer: {
+    id: 'demo-volunteer-user-1',
+    name: 'Aarav Sharma (Demo Volunteer)',
+    email: 'volunteer@foodbridge.ai',
+    phone: '+91 98110 00005',
+    role: 'VOLUNTEER' as const,
+    isVerified: true
+  },
+  admin: {
+    id: 'demo-admin-user-1',
+    name: 'FoodBridge Platform Admin',
+    email: 'admin@foodbridge.ai',
+    phone: '+91 98110 00000',
+    role: 'ADMIN' as const,
+    isVerified: true
+  }
+};
+
 const STORAGE_KEYS = {
   DONATIONS: 'foodbridge_demo_donations',
   DEMANDS: 'foodbridge_demo_demands',
   PICKUPS: 'foodbridge_demo_pickups',
   NOTIFICATIONS: 'foodbridge_demo_notifications',
   IMPACT: 'foodbridge_demo_impact',
-  INITIALIZED: 'foodbridge_demo_initialized'
+  ORGS: 'foodbridge_demo_orgs',
+  USERS: 'foodbridge_demo_users',
+  AUDIT: 'foodbridge_demo_audit',
+  INITIALIZED: 'foodbridge_demo_initialized_v2'
 };
 
 export const demoStorage = {
@@ -96,7 +150,7 @@ export const demoStorage = {
       const userStr = localStorage.getItem('foodbridge_user');
       if (userStr) {
         const user = JSON.parse(userStr);
-        return user.email?.endsWith('@foodbridge.ai');
+        return user.email?.toLowerCase().endsWith('@foodbridge.ai');
       }
     } catch {
       return false;
@@ -118,11 +172,188 @@ export const demoStorage = {
     if (typeof window === 'undefined') return;
     if (localStorage.getItem(STORAGE_KEYS.INITIALIZED)) return;
 
-    // Initialize with a clean baseline for demo evaluation
-    localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.DEMANDS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.PICKUPS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([
+    // Realistic baseline donations for Delhi NCR
+    const initialDonations: DemoDonation[] = [
+      {
+        id: 'demo-don-101',
+        foodName: 'Dinner Buffet Biryani & Dal Makhani',
+        category: 'COOKED_MEALS',
+        quantity: 40,
+        quantityUnit: 'KG',
+        estimatedMeals: 100,
+        vegType: 'VEGETARIAN',
+        allergens: ['Dairy / Milk'],
+        preparationTime: new Date(Date.now() - 2 * 3600000).toISOString(),
+        availableFrom: new Date(Date.now() - 30 * 60000).toISOString(),
+        consumeBefore: new Date(Date.now() + 4 * 3600000).toISOString(),
+        packagingStatus: 'SEALED_CONTAINERS',
+        pickupAddress: 'Connaught Place, Central Delhi',
+        latitude: 28.6315,
+        longitude: 77.2167,
+        specialInstructions: 'Packed in 4 insulated thermal boxes. Keep level.',
+        status: 'AVAILABLE',
+        createdAt: new Date(Date.now() - 45 * 60000).toISOString(),
+        donorOrg: {
+          name: 'Delhi Spice Kitchen (Demo)',
+          city: 'Delhi',
+          type: 'RESTAURANT'
+        },
+        matches: [
+          {
+            id: 'match-101-a',
+            donationId: 'demo-don-101',
+            ngoOrgId: 'demo-org-ngo-1',
+            ngoOrg: {
+              name: 'Robin Hood Army Hub (Demo)',
+              type: 'COMMUNITY_KITCHEN',
+              address: 'Kashmere Gate, North Delhi',
+              city: 'Delhi',
+              phone: '+91 98110 00002'
+            },
+            score: 96.2,
+            distanceKm: 2.4,
+            recommendationReason: '2.4 km away • Immediate capacity for 120 people • High vegetarian preference'
+          },
+          {
+            id: 'match-101-b',
+            donationId: 'demo-don-101',
+            ngoOrgId: 'demo-org-ngo-2',
+            ngoOrg: {
+              name: 'Asha Kiran Children Home',
+              type: 'ORPHANAGE',
+              address: 'Civil Lines, Delhi',
+              city: 'Delhi',
+              phone: '+91 98110 00003'
+            },
+            score: 88.5,
+            distanceKm: 4.8,
+            recommendationReason: '4.8 km away • Active dinner requirement for 80 children'
+          }
+        ]
+      },
+      {
+        id: 'demo-don-102',
+        foodName: 'Artisan Bread Rolls & Pastries',
+        category: 'BAKERY',
+        quantity: 25,
+        quantityUnit: 'KG',
+        estimatedMeals: 100,
+        vegType: 'VEGETARIAN',
+        allergens: ['Gluten / Wheat'],
+        preparationTime: new Date(Date.now() - 4 * 3600000).toISOString(),
+        availableFrom: new Date(Date.now() - 1 * 3600000).toISOString(),
+        consumeBefore: new Date(Date.now() + 18 * 3600000).toISOString(),
+        packagingStatus: 'INDIVIDUAL_PACKS',
+        pickupAddress: 'Khan Market, New Delhi',
+        latitude: 28.6003,
+        longitude: 77.2272,
+        specialInstructions: 'Individual food-grade packets ready for hand distribution.',
+        status: 'MATCHED',
+        createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),
+        donorOrg: {
+          name: 'The French Crust Bakery',
+          city: 'Delhi',
+          type: 'BAKERY'
+        },
+        matches: [
+          {
+            id: 'match-102-a',
+            donationId: 'demo-don-102',
+            ngoOrgId: 'demo-org-ngo-1',
+            ngoOrg: {
+              name: 'Robin Hood Army Hub (Demo)',
+              type: 'COMMUNITY_KITCHEN',
+              address: 'Kashmere Gate, North Delhi',
+              city: 'Delhi',
+              phone: '+91 98110 00002'
+            },
+            score: 91.8,
+            distanceKm: 3.5,
+            recommendationReason: 'Long shelf life (18h) • Highly suitable for morning breakfast distribution'
+          }
+        ]
+      },
+      {
+        id: 'demo-don-103',
+        foodName: 'Farm Fresh Organic Spinach & Tomatoes',
+        category: 'RAW_PRODUCE',
+        quantity: 35,
+        quantityUnit: 'KG',
+        estimatedMeals: 105,
+        vegType: 'VEGAN',
+        allergens: [],
+        preparationTime: new Date(Date.now() - 6 * 3600000).toISOString(),
+        availableFrom: new Date(Date.now() - 3 * 3600000).toISOString(),
+        consumeBefore: new Date(Date.now() + 36 * 3600000).toISOString(),
+        packagingStatus: 'BULK_TRAYS',
+        pickupAddress: 'Azadpur Wholesale Mandi, Delhi',
+        latitude: 28.7166,
+        longitude: 77.1738,
+        specialInstructions: 'Crates available for return on next pickup.',
+        status: 'ACCEPTED',
+        createdAt: new Date(Date.now() - 5 * 3600000).toISOString(),
+        donorOrg: {
+          name: 'GreenField AgriHub',
+          city: 'Delhi',
+          type: 'PRODUCE_MARKET'
+        }
+      }
+    ];
+
+    // Initial Demands
+    const initialDemands: DemoDemand[] = [
+      {
+        id: 'demo-dem-201',
+        foodCategory: 'COOKED_MEALS',
+        requestedQuantity: 60,
+        requestedUnit: 'KG',
+        urgency: 'HIGH',
+        requiredBefore: new Date(Date.now() + 5 * 3600000).toISOString(),
+        status: 'ACTIVE',
+        createdAt: new Date(Date.now() - 1 * 3600000).toISOString(),
+        ngoOrg: {
+          name: 'Robin Hood Army Hub (Demo)',
+          city: 'Delhi'
+        }
+      },
+      {
+        id: 'demo-dem-202',
+        foodCategory: 'RAW_PRODUCE',
+        requestedQuantity: 40,
+        requestedUnit: 'KG',
+        urgency: 'MEDIUM',
+        requiredBefore: new Date(Date.now() + 24 * 3600000).toISOString(),
+        status: 'ACTIVE',
+        createdAt: new Date(Date.now() - 4 * 3600000).toISOString(),
+        ngoOrg: {
+          name: 'Delhi Night Shelter Collective',
+          city: 'Delhi'
+        }
+      }
+    ];
+
+    // Initial Pickups for volunteer dispatch
+    const initialPickups: DemoPickup[] = [
+      {
+        id: 'demo-pk-301',
+        donationId: 'demo-don-103',
+        donation: initialDonations[2],
+        volunteerId: 'demo-volunteer-user-1',
+        status: 'ASSIGNED',
+        pickupNotes: 'Contact supervisor Ramesh at gate 4.',
+        createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),
+        delivery: {
+          id: 'demo-del-401',
+          destinationAddress: 'Robin Hood Community Kitchen, Kashmere Gate',
+          status: 'ON_WAY_TO_DESTINATION',
+          deliveredQuantity: 35,
+          receiverName: 'Sunil Verma (Kitchen In-Charge)'
+        }
+      }
+    ];
+
+    // Initial Notifications
+    const initialNotifications: DemoNotification[] = [
       {
         id: 'demo-notif-1',
         title: 'Welcome to FoodBridge AI Demo',
@@ -130,17 +361,103 @@ export const demoStorage = {
         type: 'SYSTEM',
         isRead: false,
         createdAt: new Date().toISOString()
+      },
+      {
+        id: 'demo-notif-2',
+        title: 'New AI Match: Dinner Buffet Biryani',
+        message: 'A 96.2% compatibility match was detected with Robin Hood Army Hub (2.4 km away).',
+        type: 'DONATION_MATCHED',
+        isRead: false,
+        createdAt: new Date(Date.now() - 30 * 60000).toISOString()
       }
-    ]));
-    localStorage.setItem(STORAGE_KEYS.IMPACT, JSON.stringify({
-      foodRescuedKg: 0,
-      mealsProvided: 0,
-      wastePreventedKg: 0,
-      co2SavedKg: 0,
-      activeDonors: 1,
-      activeNGOs: 1,
-      activeVolunteers: 1
-    }));
+    ];
+
+    // Initial Impact
+    const initialImpact = {
+      foodRescuedKg: 385,
+      mealsProvided: 960,
+      wastePreventedKg: 385,
+      co2SavedKg: 731,
+      activeDonors: 12,
+      activeNGOs: 16,
+      activeVolunteers: 24
+    };
+
+    // Organizations for Admin & Map
+    const initialOrgs = [
+      {
+        id: 'demo-org-donor-1',
+        name: 'Delhi Spice Kitchen (Demo)',
+        type: 'RESTAURANT',
+        address: 'Connaught Place, Central Delhi',
+        city: 'Delhi',
+        phone: '+91 98110 00001',
+        email: 'donor@foodbridge.ai',
+        verifiedStatus: 'VERIFIED',
+        latitude: 28.6315,
+        longitude: 77.2167
+      },
+      {
+        id: 'demo-org-ngo-1',
+        name: 'Robin Hood Army Hub (Demo)',
+        type: 'COMMUNITY_KITCHEN',
+        address: 'Kashmere Gate, North Delhi',
+        city: 'Delhi',
+        phone: '+91 98110 00002',
+        email: 'ngo@foodbridge.ai',
+        verifiedStatus: 'VERIFIED',
+        latitude: 28.6675,
+        longitude: 77.2285
+      },
+      {
+        id: 'demo-org-3',
+        name: 'Grand Royal Banquet Hall',
+        type: 'EVENT_ORGANIZER',
+        address: 'Karol Bagh, Delhi',
+        city: 'Delhi',
+        phone: '+91 98110 00008',
+        email: 'events@grandroyal.com',
+        verifiedStatus: 'VERIFIED',
+        latitude: 28.6517,
+        longitude: 77.1906
+      },
+      {
+        id: 'demo-org-4',
+        name: 'Delhi Night Shelter Collective',
+        type: 'NGO_SHELTER',
+        address: 'ISBT Kashmiri Gate, Delhi',
+        city: 'Delhi',
+        phone: '+91 98110 00004',
+        email: 'contact@delhishelters.org',
+        verifiedStatus: 'VERIFIED',
+        latitude: 28.6692,
+        longitude: 77.2312
+      }
+    ];
+
+    // Users for Admin
+    const initialUsers = [
+      { id: 'u1', name: 'Delhi Spice Kitchen', email: 'donor@foodbridge.ai', role: 'DONOR', isActive: true, createdAt: new Date().toISOString() },
+      { id: 'u2', name: 'Robin Hood Army Hub', email: 'ngo@foodbridge.ai', role: 'NGO', isActive: true, createdAt: new Date().toISOString() },
+      { id: 'u3', name: 'Aarav Sharma', email: 'volunteer@foodbridge.ai', role: 'VOLUNTEER', isActive: true, createdAt: new Date().toISOString() },
+      { id: 'u4', name: 'Platform Admin', email: 'admin@foodbridge.ai', role: 'ADMIN', isActive: true, createdAt: new Date().toISOString() }
+    ];
+
+    // Audit logs
+    const initialAudit = [
+      { id: 'a1', action: 'DONATION_CREATED', entityType: 'FoodDonation', entityId: 'demo-don-101', createdAt: new Date(Date.now() - 45 * 60000).toISOString(), ipAddress: '127.0.0.1' },
+      { id: 'a2', action: 'AI_MATCH_GENERATED', entityType: 'DonationMatch', entityId: 'match-101-a', createdAt: new Date(Date.now() - 44 * 60000).toISOString(), ipAddress: '127.0.0.1' },
+      { id: 'a3', action: 'PICKUP_ASSIGNED', entityType: 'Pickup', entityId: 'demo-pk-301', createdAt: new Date(Date.now() - 2 * 3600000).toISOString(), ipAddress: '127.0.0.1' }
+    ];
+
+    localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(initialDonations));
+    localStorage.setItem(STORAGE_KEYS.DEMANDS, JSON.stringify(initialDemands));
+    localStorage.setItem(STORAGE_KEYS.PICKUPS, JSON.stringify(initialPickups));
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(initialNotifications));
+    localStorage.setItem(STORAGE_KEYS.IMPACT, JSON.stringify(initialImpact));
+    localStorage.setItem(STORAGE_KEYS.ORGS, JSON.stringify(initialOrgs));
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(initialUsers));
+    localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(initialAudit));
     localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
   },
 
@@ -148,6 +465,7 @@ export const demoStorage = {
   getDonations(): DemoDonation[] {
     if (typeof window === 'undefined') return [];
     try {
+      this.ensureInitialized();
       return JSON.parse(localStorage.getItem(STORAGE_KEYS.DONATIONS) || '[]');
     } catch {
       return [];
@@ -164,32 +482,32 @@ export const demoStorage = {
       {
         id: `demo-match-${Date.now()}-1`,
         donationId: id,
-        ngoOrgId: 'demo-ngo-org-1',
+        ngoOrgId: 'demo-org-ngo-1',
         ngoOrg: {
-          name: 'Robin Hood Army Hub (Local Demo)',
+          name: 'Robin Hood Army Hub (Demo)',
           type: 'COMMUNITY_KITCHEN',
-          address: 'Connaught Place Area, Central Delhi',
+          address: 'Kashmere Gate, North Delhi',
           city: 'Delhi',
-          phone: '+919811000003'
+          phone: '+91 98110 00002'
         },
-        score: 95.4,
+        score: 95.8,
         distanceKm: 2.1,
-        recommendationReason: '2.1 km away • Matches cooked food preference • Immediate shelter capacity available'
+        recommendationReason: '2.1 km away • Matches food type • High capacity (120 people)'
       },
       {
         id: `demo-match-${Date.now()}-2`,
         donationId: id,
-        ngoOrgId: 'demo-ngo-org-2',
+        ngoOrgId: 'demo-org-4',
         ngoOrg: {
           name: 'Delhi Night Shelter Collective',
           type: 'NGO_SHELTER',
-          address: 'Kashmere Gate, North Delhi',
+          address: 'ISBT Kashmiri Gate, Delhi',
           city: 'Delhi',
-          phone: '+919811000004'
+          phone: '+91 98110 00004'
         },
-        score: 88.2,
-        distanceKm: 4.8,
-        recommendationReason: '4.8 km away • Active dinner meal requirement'
+        score: 89.2,
+        distanceKm: 4.2,
+        recommendationReason: '4.2 km away • Active high urgency demand for evening meals'
       }
     ];
 
@@ -213,7 +531,7 @@ export const demoStorage = {
       status: 'AVAILABLE',
       createdAt: new Date().toISOString(),
       donorOrg: {
-        name: 'FoodBridge Partner Kitchen (Demo)',
+        name: 'Delhi Spice Kitchen (Demo)',
         city: 'Delhi',
         type: 'RESTAURANT'
       },
@@ -223,10 +541,9 @@ export const demoStorage = {
     donations.unshift(newDonation);
     localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(donations));
 
-    // Also push a demo notification
     this.addNotification({
       title: 'Surplus Food Reported (Demo)',
-      message: `Successfully recorded ${qty} ${newDonation.quantityUnit} of ${newDonation.foodName} (${meals} meals) in browser storage.`,
+      message: `Successfully listed ${qty} ${newDonation.quantityUnit} of ${newDonation.foodName} (${meals} meals) in browser storage.`,
       type: 'DONATION_AVAILABLE'
     });
 
@@ -253,6 +570,7 @@ export const demoStorage = {
   getDemands(): DemoDemand[] {
     if (typeof window === 'undefined') return [];
     try {
+      this.ensureInitialized();
       return JSON.parse(localStorage.getItem(STORAGE_KEYS.DEMANDS) || '[]');
     } catch {
       return [];
@@ -271,7 +589,7 @@ export const demoStorage = {
       status: 'ACTIVE',
       createdAt: new Date().toISOString(),
       ngoOrg: {
-        name: 'Shelter Hub (Demo)',
+        name: 'Robin Hood Army Hub (Demo)',
         city: 'Delhi'
       }
     };
@@ -291,7 +609,6 @@ export const demoStorage = {
   // ---------------- MATCHES & RECOMMENDATIONS ----------------
   getRecommendations(): DemoDonation[] {
     const donations = this.getDonations();
-    // Return available donations
     return donations.filter((d) => d.status === 'AVAILABLE' || d.status === 'MATCHED');
   },
 
@@ -303,7 +620,6 @@ export const demoStorage = {
     don.status = 'ACCEPTED';
     localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(donations));
 
-    // Create a Pickup ready for volunteer
     const pickups = this.getPickups();
     const pickupId = `demo-pk-${Date.now()}`;
     const newPickup: DemoPickup = {
@@ -314,7 +630,7 @@ export const demoStorage = {
       createdAt: new Date().toISOString(),
       delivery: {
         id: `demo-del-${Date.now()}`,
-        destinationAddress: 'Robin Hood Army Shelter Hub, Kashmere Gate',
+        destinationAddress: 'Robin Hood Community Kitchen, Kashmere Gate',
         status: 'ON_WAY_TO_DESTINATION',
         deliveredQuantity: don.quantity
       }
@@ -341,10 +657,46 @@ export const demoStorage = {
     return { success: true };
   },
 
+  getNearbyNGOs() {
+    return [
+      {
+        id: 'demo-org-ngo-1',
+        name: 'Robin Hood Army Hub (Demo)',
+        type: 'COMMUNITY_KITCHEN',
+        address: 'Kashmere Gate, North Delhi',
+        city: 'Delhi',
+        phone: '+91 98110 00002',
+        distanceKm: 2.1,
+        capacityPeople: 120
+      },
+      {
+        id: 'demo-org-4',
+        name: 'Delhi Night Shelter Collective',
+        type: 'NGO_SHELTER',
+        address: 'ISBT Kashmiri Gate, Delhi',
+        city: 'Delhi',
+        phone: '+91 98110 00004',
+        distanceKm: 4.2,
+        capacityPeople: 90
+      },
+      {
+        id: 'demo-org-5',
+        name: 'Goonj Urban Relief Centre',
+        type: 'COMMUNITY_KITCHEN',
+        address: 'Madanpur Khadar, Sarita Vihar, Delhi',
+        city: 'Delhi',
+        phone: '+91 98110 00006',
+        distanceKm: 6.8,
+        capacityPeople: 250
+      }
+    ];
+  },
+
   // ---------------- PICKUPS & VOLUNTEER ----------------
   getPickups(): DemoPickup[] {
     if (typeof window === 'undefined') return [];
     try {
+      this.ensureInitialized();
       return JSON.parse(localStorage.getItem(STORAGE_KEYS.PICKUPS) || '[]');
     } catch {
       return [];
@@ -361,7 +713,7 @@ export const demoStorage = {
     if (!pickup) throw new Error('Pickup not found in local browser storage');
 
     pickup.status = 'ON_WAY_TO_PICKUP';
-    pickup.volunteerId = 'demo-volunteer-id';
+    pickup.volunteerId = 'demo-volunteer-user-1';
     localStorage.setItem(STORAGE_KEYS.PICKUPS, JSON.stringify(pickups));
 
     return pickup;
@@ -390,7 +742,6 @@ export const demoStorage = {
       pickup.delivery.proofImageUrl = data.proofImageUrl || 'https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&w=500&q=60';
     }
 
-    // Update donation status
     const donations = this.getDonations();
     const don = donations.find((d) => d.id === pickup.donationId);
     if (don) don.status = 'DELIVERED';
@@ -398,7 +749,6 @@ export const demoStorage = {
     localStorage.setItem(STORAGE_KEYS.PICKUPS, JSON.stringify(pickups));
     localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(donations));
 
-    // Increment local demo impact
     this.recordImpact(pickup.donation.quantity);
 
     this.addNotification({
@@ -413,20 +763,21 @@ export const demoStorage = {
   // ---------------- IMPACT & ANALYTICS ----------------
   getImpact() {
     if (typeof window === 'undefined') {
-      return { foodRescuedKg: 0, mealsProvided: 0, wastePreventedKg: 0, co2SavedKg: 0, activeDonors: 1, activeNGOs: 1, activeVolunteers: 1 };
+      return { foodRescuedKg: 385, mealsProvided: 960, wastePreventedKg: 385, co2SavedKg: 731, activeDonors: 12, activeNGOs: 16, activeVolunteers: 24 };
     }
     try {
+      this.ensureInitialized();
       return JSON.parse(localStorage.getItem(STORAGE_KEYS.IMPACT) || JSON.stringify({
-        foodRescuedKg: 0,
-        mealsProvided: 0,
-        wastePreventedKg: 0,
-        co2SavedKg: 0,
-        activeDonors: 1,
-        activeNGOs: 1,
-        activeVolunteers: 1
+        foodRescuedKg: 385,
+        mealsProvided: 960,
+        wastePreventedKg: 385,
+        co2SavedKg: 731,
+        activeDonors: 12,
+        activeNGOs: 16,
+        activeVolunteers: 24
       }));
     } catch {
-      return { foodRescuedKg: 0, mealsProvided: 0, wastePreventedKg: 0, co2SavedKg: 0, activeDonors: 1, activeNGOs: 1, activeVolunteers: 1 };
+      return { foodRescuedKg: 385, mealsProvided: 960, wastePreventedKg: 385, co2SavedKg: 731, activeDonors: 12, activeNGOs: 16, activeVolunteers: 24 };
     }
   },
 
@@ -439,10 +790,153 @@ export const demoStorage = {
     localStorage.setItem(STORAGE_KEYS.IMPACT, JSON.stringify(impact));
   },
 
+  getTrends() {
+    return {
+      trendData: [
+        { date: 'Mon', rescuedKg: 45, meals: 112, co2Saved: 85 },
+        { date: 'Tue', rescuedKg: 62, meals: 155, co2Saved: 118 },
+        { date: 'Wed', rescuedKg: 38, meals: 95, co2Saved: 72 },
+        { date: 'Thu', rescuedKg: 85, meals: 212, co2Saved: 161 },
+        { date: 'Fri', rescuedKg: 95, meals: 238, co2Saved: 180 },
+        { date: 'Sat', rescuedKg: 130, meals: 325, co2Saved: 247 },
+        { date: 'Sun', rescuedKg: 110, meals: 275, co2Saved: 209 }
+      ],
+      categoryData: [
+        { name: 'Cooked Meals', value: 45 },
+        { name: 'Bakery', value: 20 },
+        { name: 'Raw Produce', value: 18 },
+        { name: 'Dairy', value: 12 },
+        { name: 'Packaged', value: 5 }
+      ]
+    };
+  },
+
+  getLeaderboards() {
+    return {
+      donors: [
+        { id: '1', name: 'Delhi Spice Kitchen (Demo)', organizationName: 'Delhi Spice Kitchen', mealsRescued: 420, rank: 1, co2Saved: 798, badge: '🥇 Gold Rescuer' },
+        { id: '2', name: 'The French Crust Bakery', organizationName: 'The French Crust Bakery', mealsRescued: 310, rank: 2, co2Saved: 589, badge: '🥈 Silver Rescuer' },
+        { id: '3', name: 'Grand Buffet Connaught', organizationName: 'Grand Buffet Connaught', mealsRescued: 240, rank: 3, co2Saved: 456, badge: '🥉 Bronze Rescuer' },
+        { id: '4', name: 'GreenField AgriHub', organizationName: 'GreenField AgriHub', mealsRescued: 185, rank: 4, co2Saved: 351, badge: '🌱 Green Hero' }
+      ],
+      volunteers: [
+        { id: '1', name: 'Aarav Sharma (Demo Volunteer)', deliveriesCount: 38, rank: 1, badge: '⚡ Speed Champion' },
+        { id: '2', name: 'Priya Patel', deliveriesCount: 29, rank: 2, badge: '🛡️ Reliability Pro' },
+        { id: '3', name: 'Rohan Mehra', deliveriesCount: 22, rank: 3, badge: '🌟 Community Hero' }
+      ]
+    };
+  },
+
+  getBadges() {
+    return [
+      { id: 'b1', name: 'Zero Waste Pioneer', description: 'Prevented over 250 kg of edible food waste from reaching landfills.', icon: '🌱', unlocked: true },
+      { id: 'b2', name: 'Centurion Feeder', description: 'Provided 100+ meals to community kitchens & hunger relief shelters.', icon: '🍲', unlocked: true },
+      { id: 'b3', name: 'Rapid Dispatcher', description: 'Collected and transported surplus donations in under 45 minutes.', icon: '⚡', unlocked: true },
+      { id: 'b4', name: 'Community Pillar', description: 'Contributed 5+ consecutive days of verified hunger relief operations.', icon: '🏆', unlocked: true }
+    ];
+  },
+
+  // ---------------- ADMIN ----------------
+  getOrganizations() {
+    if (typeof window === 'undefined') return [];
+    try {
+      this.ensureInitialized();
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.ORGS) || '[]');
+    } catch {
+      return [];
+    }
+  },
+
+  verifyOrganization(orgId: string, status: string) {
+    const orgs = this.getOrganizations();
+    const org = orgs.find((o: any) => o.id === orgId);
+    if (org) {
+      org.verifiedStatus = status;
+      localStorage.setItem(STORAGE_KEYS.ORGS, JSON.stringify(orgs));
+    }
+    return { success: true };
+  },
+
+  getUsers() {
+    if (typeof window === 'undefined') return [];
+    try {
+      this.ensureInitialized();
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
+    } catch {
+      return [];
+    }
+  },
+
+  toggleUserStatus(userId: string, isActive: boolean) {
+    const users = this.getUsers();
+    const u = users.find((item: any) => item.id === userId);
+    if (u) {
+      u.isActive = isActive;
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    }
+    return { success: true };
+  },
+
+  getAuditLogs() {
+    if (typeof window === 'undefined') return [];
+    try {
+      this.ensureInitialized();
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.AUDIT) || '[]');
+    } catch {
+      return [];
+    }
+  },
+
+  // ---------------- AI INTELLIGENCE ----------------
+  getAIMetrics() {
+    return {
+      model_version: 'v2.4-rf',
+      r2_score: 0.914,
+      mae_kg: 2.18,
+      rmse_kg: 3.42,
+      training_samples: 1250,
+      last_retrained: '2026-10-09',
+      features_used: ['expected_customers', 'restaurant_type', 'food_category', 'day_of_week', 'month', 'has_event']
+    };
+  },
+
+  getAIForecasts(days: number = 7) {
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const base = [34.5, 28.2, 31.0, 42.1, 58.4, 72.0, 64.6];
+    return Array.from({ length: Math.min(days, 7) }, (_, i) => ({
+      day: dayNames[i],
+      predicted_surplus_kg: base[i],
+      confidence_lower: +(base[i] * 0.85).toFixed(1),
+      confidence_upper: +(base[i] * 1.15).toFixed(1)
+    }));
+  },
+
+  predictSurplus(data: any) {
+    const customers = Number(data.expected_customers) || 100;
+    const factor = data.has_event ? 0.35 : 0.22;
+    const surplusKg = +(customers * factor).toFixed(1);
+    const meals = Math.round(surplusKg * 2.5);
+
+    return {
+      predicted_surplus_kg: surplusKg,
+      estimated_meals: meals,
+      confidence_range: {
+        lower_kg: +(surplusKg * 0.88).toFixed(1),
+        upper_kg: +(surplusKg * 1.12).toFixed(1)
+      },
+      factors: {
+        customer_volume: `${customers} expected patrons`,
+        event_impact: data.has_event ? '+35% event buffer' : 'Standard dinner flow',
+        category_risk: 'Medium shelf life factor'
+      }
+    };
+  },
+
   // ---------------- NOTIFICATIONS ----------------
   getNotifications(): DemoNotification[] {
     if (typeof window === 'undefined') return [];
     try {
+      this.ensureInitialized();
       return JSON.parse(localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS) || '[]');
     } catch {
       return [];
@@ -475,6 +969,9 @@ export const demoStorage = {
     localStorage.removeItem(STORAGE_KEYS.PICKUPS);
     localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
     localStorage.removeItem(STORAGE_KEYS.IMPACT);
+    localStorage.removeItem(STORAGE_KEYS.ORGS);
+    localStorage.removeItem(STORAGE_KEYS.USERS);
+    localStorage.removeItem(STORAGE_KEYS.AUDIT);
     localStorage.removeItem(STORAGE_KEYS.INITIALIZED);
     this.ensureInitialized();
   }

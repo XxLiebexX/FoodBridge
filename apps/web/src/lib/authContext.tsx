@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from './api';
-import { demoStorage } from './demoStorage';
+import { demoStorage, DEMO_USERS } from './demoStorage';
 
 export interface User {
   id: string;
@@ -65,20 +65,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, pass: string) => {
     const isDemoEmail = email.toLowerCase().endsWith('@foodbridge.ai');
     
-    // Authenticate with server
+    if (isDemoEmail) {
+      // 100% Client-Side Instant Authentication for Demo Evaluation
+      demoStorage.setDemoActive(true);
+      setIsDemo(true);
+
+      const lower = email.toLowerCase();
+      let role: 'donor' | 'ngo' | 'volunteer' | 'admin' = 'donor';
+      if (lower.startsWith('ngo')) role = 'ngo';
+      else if (lower.startsWith('vol')) role = 'volunteer';
+      else if (lower.startsWith('admin')) role = 'admin';
+
+      const demoUser = DEMO_USERS[role];
+      const mockToken = `demo_token_${Date.now()}`;
+
+      localStorage.setItem('foodbridge_token', mockToken);
+      localStorage.setItem('foodbridge_refreshToken', mockToken);
+      localStorage.setItem('foodbridge_user', JSON.stringify(demoUser));
+
+      setToken(mockToken);
+      setUser(demoUser);
+
+      redirectToDashboard(demoUser.role);
+      return;
+    }
+
+    // Real account: Persist to backend Express & MongoDB
+    demoStorage.setDemoActive(false);
+    setIsDemo(false);
+
     const res = await api.post('/auth/login', { email, password: pass });
     localStorage.setItem('foodbridge_token', res.accessToken);
     localStorage.setItem('foodbridge_refreshToken', res.refreshToken);
     localStorage.setItem('foodbridge_user', JSON.stringify(res.user));
 
-    // Configure storage mode: Demo accounts use browser localStorage only; Main accounts use MongoDB
-    demoStorage.setDemoActive(isDemoEmail);
-    setIsDemo(isDemoEmail);
-
     setToken(res.accessToken);
     setUser(res.user);
 
-    // Redirect to respective dashboard
     redirectToDashboard(res.user.role);
   };
 
@@ -110,10 +133,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const quickDemoLogin = async (role: 'donor' | 'ngo' | 'volunteer' | 'admin') => {
-    const creds = DEMO_CREDENTIALS[role];
     demoStorage.setDemoActive(true);
     setIsDemo(true);
-    await login(creds.email, creds.password);
+
+    const demoUser = DEMO_USERS[role];
+    const mockToken = `demo_token_${Date.now()}`;
+
+    localStorage.setItem('foodbridge_token', mockToken);
+    localStorage.setItem('foodbridge_refreshToken', mockToken);
+    localStorage.setItem('foodbridge_user', JSON.stringify(demoUser));
+
+    setToken(mockToken);
+    setUser(demoUser);
+
+    redirectToDashboard(demoUser.role);
   };
 
   const redirectToDashboard = (role: string) => {
