@@ -91,7 +91,10 @@ export const DEMO_USERS = {
       name: 'Delhi Spice Kitchen',
       type: 'RESTAURANT',
       city: 'Delhi',
-      address: 'Connaught Place, Central Delhi'
+      address: 'Connaught Place, Central Delhi',
+      donorProfile: {
+        typicalDailySurplusKg: 35
+      }
     }
   },
   ngo: {
@@ -107,7 +110,12 @@ export const DEMO_USERS = {
       name: 'Robin Hood Army Hub',
       type: 'COMMUNITY_KITCHEN',
       city: 'Delhi',
-      address: 'Kashmere Gate, North Delhi'
+      address: 'Kashmere Gate, North Delhi',
+      ngoProfile: {
+        capacityPeople: 120,
+        dailyMealsCapacity: 250,
+        serviceRadiusKm: 15
+      }
     }
   },
   volunteer: {
@@ -116,7 +124,12 @@ export const DEMO_USERS = {
     email: 'volunteer@foodbridge.ai',
     phone: '+91 98110 00005',
     role: 'VOLUNTEER' as const,
-    isVerified: true
+    isVerified: true,
+    volunteerProfile: {
+      vehicleType: 'TWO_WHEELER',
+      maxCapacityKg: 30,
+      totalDeliveries: 38
+    }
   },
   admin: {
     id: 'demo-admin-user-1',
@@ -607,9 +620,31 @@ export const demoStorage = {
   },
 
   // ---------------- MATCHES & RECOMMENDATIONS ----------------
-  getRecommendations(): DemoDonation[] {
+  getRecommendations() {
     const donations = this.getDonations();
-    return donations.filter((d) => d.status === 'AVAILABLE' || d.status === 'MATCHED');
+    const available = donations.filter((d) => d.status === 'AVAILABLE' || d.status === 'MATCHED');
+    return available.map((d, index) => {
+      const match = d.matches && d.matches[0];
+      return {
+        matchId: match?.id || `demo-match-${d.id}-${index}`,
+        score: match?.score || (index === 0 ? 96.2 : 88.5),
+        distanceKm: match?.distanceKm || (index === 0 ? 2.4 : 4.8),
+        recommendationReason: match?.recommendationReason || (
+          index === 0
+            ? '2.4 km away • Immediate capacity for 120 people • High vegetarian compatibility'
+            : '4.8 km away • Active evening meal requirement'
+        ),
+        breakdown: {
+          distanceScore: 95,
+          quantityScore: 90,
+          foodCompatibilityScore: 100,
+          urgencyScore: 85,
+          expiryScore: 90,
+          capacityScore: 95
+        },
+        donation: d
+      };
+    });
   },
 
   acceptDonation(donationId: string) {

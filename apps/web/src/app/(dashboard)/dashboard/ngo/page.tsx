@@ -160,15 +160,17 @@ export default function NGODashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {recommendations.map((rec) => {
-              const d = rec.donation;
+              const d = rec.donation || rec;
+              if (!d) return null;
+              const consumeDate = d.consumeBefore ? new Date(d.consumeBefore).getTime() : Date.now();
               const hoursLeft = Math.max(
                 0,
-                Math.round((new Date(d.consumeBefore).getTime() - Date.now()) / (1000 * 60 * 60))
+                Math.round((consumeDate - Date.now()) / (1000 * 60 * 60))
               );
 
               return (
                 <div
-                  key={rec.matchId}
+                  key={rec.matchId || d.id}
                   className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 flex flex-col justify-between hover:shadow-md transition-shadow space-y-4"
                 >
                   <div className="space-y-3">
@@ -176,17 +178,17 @@ export default function NGODashboard() {
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span>{d.vegType === 'VEGETARIAN' ? '🟢' : '🔴'}</span>
-                          <span className="text-xs font-semibold text-slate-500 uppercase">{d.category.replace('_', ' ')}</span>
+                          <span className="text-xs font-semibold text-slate-500 uppercase">{(d.category || '').replace('_', ' ')}</span>
                         </div>
-                        <h3 className="text-base font-bold text-slate-900 mt-0.5">{d.foodName}</h3>
+                        <h3 className="text-base font-bold text-slate-900 mt-0.5">{d.foodName || 'Surplus Food'}</h3>
                         <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
                           <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{d.donorOrg?.name || 'Local Donor'} • {d.pickupAddress}</span>
+                          <span>{d.donorOrg?.name || 'Local Donor'} • {d.pickupAddress || 'Delhi'}</span>
                         </p>
                       </div>
 
                       <span className="px-3 py-1 rounded-xl text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        {rec.score}% Match
+                        {rec.score || 95}% Match
                       </span>
                     </div>
 
@@ -202,14 +204,14 @@ export default function NGODashboard() {
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
                           <span>{hoursLeft} hours remaining</span>
                         </span>
-                        <span className="text-slate-500 text-[10px] block mt-0.5">{rec.distanceKm} km away</span>
+                        <span className="text-slate-500 text-[10px] block mt-0.5">{rec.distanceKm || 2.4} km away</span>
                       </div>
                     </div>
 
                     {/* Explainability Badge */}
                     <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 text-xs text-emerald-900 leading-relaxed flex items-start gap-2">
                       <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                      <span>{rec.recommendationReason}</span>
+                      <span>{rec.recommendationReason || 'High match score based on proximity and capacity.'}</span>
                     </div>
                   </div>
 

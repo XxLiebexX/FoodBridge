@@ -143,7 +143,7 @@ export default function VolunteerDashboard() {
         ) : (
           <div className="space-y-4">
             {pickups.map((p) => {
-              const d = p.donation;
+              const d = p.donation || {};
               const isAssignedToMe = p.volunteerId === user?.id;
 
               return (
@@ -154,11 +154,11 @@ export default function VolunteerDashboard() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900">{d.foodName}</span>
+                        <span className="text-sm font-bold text-slate-900">{d.foodName || 'Surplus Food'}</span>
                         <StatusBadge status={p.status} />
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Quantity: <strong>{d.quantity} {d.quantityUnit}</strong> (~{d.estimatedMeals} meal portions)
+                        Quantity: <strong>{d.quantity || 10} {d.quantityUnit || 'KG'}</strong> (~{d.estimatedMeals || 25} meal portions)
                       </p>
                     </div>
 

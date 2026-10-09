@@ -145,9 +145,11 @@ export default function DonorDashboard() {
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {donations.map((d) => {
+                  if (!d) return null;
+                  const consumeDate = d.consumeBefore ? new Date(d.consumeBefore).getTime() : Date.now();
                   const hoursLeft = Math.max(
                     0,
-                    Math.round((new Date(d.consumeBefore).getTime() - Date.now()) / (1000 * 60 * 60))
+                    Math.round((consumeDate - Date.now()) / (1000 * 60 * 60))
                   );
 
                   return (
