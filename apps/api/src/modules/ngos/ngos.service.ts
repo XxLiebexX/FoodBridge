@@ -79,7 +79,7 @@ export class NGOService {
       orderBy: { score: 'desc' }
     });
 
-    return matches.map(m => ({
+    return matches.map((m: any) => ({
       matchId: m.id,
       score: m.score,
       distanceKm: m.distanceKm,
@@ -164,7 +164,7 @@ export class NGOService {
       throw new AppError(`Donation quantity exceeds safe handling capacity of ${ngoCapacity} meals.`, 400, 'CAPACITY_EXCEEDED');
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // 1. Update donation status to ACCEPTED
       const updatedDonation = await tx.foodDonation.update({
         where: { id: donationId },

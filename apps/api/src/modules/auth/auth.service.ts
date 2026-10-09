@@ -35,7 +35,7 @@ export class AuthService {
     // Initial verification: Donors are verified by default; NGOs start as PENDING for admin review
     const isVerified = data.role === UserRole.NGO ? false : true;
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const user = await tx.user.create({
         data: {
           name: data.name,

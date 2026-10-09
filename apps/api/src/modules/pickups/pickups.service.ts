@@ -40,7 +40,7 @@ export class PickupsService {
       throw new AppError('This pickup has already been accepted by another volunteer', 409, 'ALREADY_ASSIGNED');
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: any) => {
       const p = await tx.pickup.update({
         where: { id: pickupId },
         data: {
@@ -94,7 +94,7 @@ export class PickupsService {
       donationStatus = DonationStatus.IN_TRANSIT;
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: any) => {
       const p = await tx.pickup.update({
         where: { id: pickupId },
         data
@@ -147,7 +147,7 @@ export class PickupsService {
 
     const now = new Date();
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // 1. Mark delivery as DELIVERED
       const updatedDelivery = await tx.delivery.update({
         where: { id: deliveryId },
