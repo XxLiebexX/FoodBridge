@@ -518,21 +518,28 @@ export async function POST(
         data: { status: 'ACCEPTED' }
       });
 
-      const pickup = await prisma.pickup.create({
-        data: {
-          donationId,
-          status: 'ASSIGNED',
-          delivery: {
-            create: {
-              destinationAddress: 'Kashmere Gate Community Shelter, Delhi',
-              latitude: 28.6675,
-              longitude: 77.2285,
-              status: 'ON_WAY_TO_DESTINATION'
-            }
-          }
-        },
+      let pickup = await prisma.pickup.findUnique({
+        where: { donationId },
         include: { delivery: true }
       });
+
+      if (!pickup) {
+        pickup = await prisma.pickup.create({
+          data: {
+            donationId,
+            status: 'ASSIGNED',
+            delivery: {
+              create: {
+                destinationAddress: 'Kashmere Gate Community Shelter, Delhi',
+                latitude: 28.6675,
+                longitude: 77.2285,
+                status: 'ON_WAY_TO_DESTINATION'
+              }
+            }
+          },
+          include: { delivery: true }
+        });
+      }
 
       return NextResponse.json({ success: true, data: pickup });
     }
