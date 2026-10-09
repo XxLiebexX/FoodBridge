@@ -1,0 +1,99 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "FoodBridge AI - REST API Documentation",
+    "version": "1.0.0",
+    "description": "Production-grade RESTful APIs for FoodBridge AI: food waste reduction, AI matching engine, demand & surplus predictions, volunteer logistics, and impact calculations."
+  },
+  "servers": [
+    { "url": "/api", "description": "Current Server" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "summary": "Register a new user (Donor, NGO, Volunteer)",
+        "responses": { "201": { "description": "Registered successfully" } }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Authenticate user and receive JWT tokens",
+        "responses": { "200": { "description": "Logged in successfully" } }
+      }
+    },
+    "/donations": {
+      "get": {
+        "summary": "Search and list surplus food donations with filters",
+        "responses": { "200": { "description": "List of donations" } }
+      },
+      "post": {
+        "summary": "Create surplus food donation and calculate AI NGO matches",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "201": { "description": "Donation created and matched" } }
+      }
+    },
+    "/donations/{id}/matches": {
+      "get": {
+        "summary": "Retrieve AI recommended NGOs with match breakdown and explainability",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "AI match list" } }
+      }
+    },
+    "/ngos/nearby": {
+      "get": {
+        "summary": "Find nearby verified NGOs within radius",
+        "responses": { "200": { "description": "List of nearby NGOs" } }
+      }
+    },
+    "/ngos/donations/{donationId}/accept": {
+      "post": {
+        "summary": "NGO accepts surplus donation (triggers volunteer pickup dispatch)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Donation accepted and pickup assigned" } }
+      }
+    },
+    "/pickups/available": {
+      "get": {
+        "summary": "List available and assigned rescue pickups for volunteers",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Pickup assignments" } }
+      }
+    },
+    "/pickups/deliveries/{id}/complete": {
+      "post": {
+        "summary": "Volunteer marks delivery complete with receiver name and delivered quantity",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Delivery marked completed" } }
+      }
+    },
+    "/impact/overview": {
+      "get": {
+        "summary": "Live platform impact metrics (food rescued, meals provided, waste prevented, CO2 saved)",
+        "responses": { "200": { "description": "Impact statistics" } }
+      }
+    },
+    "/ai/predict/surplus": {
+      "post": {
+        "summary": "Predict future food surplus quantity using GradientBoosting model",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Predicted surplus with confidence interval" } }
+      }
+    },
+    "/ai/predict/demand": {
+      "post": {
+        "summary": "Predict NGO food demand using RandomForest model",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Predicted demand with meal conversions" } }
+      }
+    }
+  }
+}

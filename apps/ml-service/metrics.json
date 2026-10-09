@@ -1,0 +1,16 @@
+{
+  "surplus": {
+    "model_name": "GradientBoosting Surplus Regressor",
+    "mae": 18.523,
+    "rmse": 29.106,
+    "r2_score": 0.451,
+    "trained_at": "2026-10-06T20:47:58.802373"
+  },
+  "demand": {
+    "model_name": "RandomForest NGO Demand Regressor",
+    "mae": 4.091,
+    "rmse": 6.366,
+    "r2_score": 0.988,
+    "trained_at": "2026-10-06T20:47:58.933684"
+  }
+}

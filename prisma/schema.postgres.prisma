@@ -1,0 +1,304 @@
+// Prisma Schema for FoodBridge AI (PostgreSQL Production)
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  phone        String
+  role         String
+  avatarUrl    String?
+  isVerified   Boolean   @default(false)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  memberships       OrganizationMember[]
+  donationsCreated  FoodDonation[]       @relation("UserDonations")
+  volunteerProfile  VolunteerProfile?
+  pickups           Pickup[]             @relation("VolunteerPickups")
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  issueReports      IssueReport[]
+  reviews           Review[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Organization {
+  id             String    @id @default(uuid())
+  name           String
+  type           String
+  description    String?
+  address        String
+  city           String
+  latitude       Float
+  longitude      Float
+  phone          String
+  email          String
+  verifiedStatus String    @default("PENDING")
+  fssaiLicense   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  members        OrganizationMember[]
+  donorProfile   DonorProfile?
+  ngoProfile     NGOProfile?
+  donations      FoodDonation[]       @relation("OrgDonations")
+  demands        NGODemand[]          @relation("OrgDemands")
+  matches        DonationMatch[]      @relation("OrgMatches")
+  requests       DonationRequest[]    @relation("OrgRequests")
+
+  @@index([city])
+  @@index([verifiedStatus])
+  @@index([type])
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid())
+  organizationId String
+  userId         String
+  roleInOrg      String       @default("MEMBER")
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+}
+
+model DonorProfile {
+  id                    String       @id @default(uuid())
+  organizationId        String       @unique
+  businessType          String?
+  typicalDailySurplusKg Float        @default(0)
+  operatingHours        String?
+  preferredPickupTimes  String?
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model NGOProfile {
+  id                     String       @id @default(uuid())
+  organizationId         String       @unique
+  capacityPeople         Int          @default(50)
+  dailyMealsCapacity     Int          @default(100)
+  serviceRadiusKm        Float        @default(15.0)
+  dietaryPreferences     String       @default("ANY")
+  refrigerationAvailable Boolean      @default(false)
+
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model VolunteerProfile {
+  id                    String   @id @default(uuid())
+  userId                String   @unique
+  vehicleType           String   @default("TWO_WHEELER")
+  maxCapacityKg         Float    @default(30.0)
+  isAvailable           Boolean  @default(true)
+  activeDeliveriesCount Int      @default(0)
+  totalDeliveries       Int      @default(0)
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FoodDonation {
+  id                  String   @id @default(uuid())
+  donorId             String
+  donorOrgId          String?
+  foodName            String
+  category            String
+  quantity            Float
+  quantityUnit        String   @default("KG")
+  estimatedMeals      Int      @default(0)
+  vegType             String
+  allergens           String   @default("[]")
+  preparationTime     DateTime
+  availableFrom       DateTime
+  consumeBefore       DateTime
+  packagingStatus     String
+  imageUrl            String?
+  pickupAddress       String
+  latitude            Float
+  longitude           Float
+  specialInstructions String?
+  status              String   @default("AVAILABLE")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  donor               User              @relation("UserDonations", fields: [donorId], references: [id], onDelete: Cascade)
+  donorOrg            Organization?     @relation("OrgDonations", fields: [donorOrgId], references: [id], onDelete: SetNull)
+  matches             DonationMatch[]
+  requests            DonationRequest[]
+  pickup              Pickup?
+  reviews             Review[]
+  issues              IssueReport[]
+
+  @@index([status])
+  @@index([consumeBefore])
+  @@index([category])
+  @@index([donorId])
+}
+
+model NGODemand {
+  id                String       @id @default(uuid())
+  ngoId             String?
+  ngoOrgId          String
+  foodCategory      String
+  requestedQuantity Float
+  requestedUnit     String       @default("KG")
+  urgency           String       @default("MEDIUM")
+  requiredBefore    DateTime
+  status            String       @default("ACTIVE")
+  createdAt         DateTime     @default(now())
+
+  ngoOrg            Organization @relation("OrgDemands", fields: [ngoOrgId], references: [id], onDelete: Cascade)
+
+  @@index([ngoOrgId])
+  @@index([status])
+}
+
+model DonationMatch {
+  id                   String       @id @default(uuid())
+  donationId           String
+  ngoOrgId             String
+  score                Float
+  distanceKm           Float
+  quantityFit          Float
+  urgencyScore         Float
+  foodCompatibility    Float
+  expiryScore          Float
+  capacityScore        Float
+  recommendationReason String
+  status               String       @default("PENDING")
+  createdAt            DateTime     @default(now())
+
+  donation             FoodDonation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  ngoOrg               Organization @relation("OrgMatches", fields: [ngoOrgId], references: [id], onDelete: Cascade)
+
+  @@unique([donationId, ngoOrgId])
+  @@index([donationId])
+  @@index([ngoOrgId])
+  @@index([status])
+}
+
+model DonationRequest {
+  id          String       @id @default(uuid())
+  donationId  String
+  ngoOrgId    String
+  message     String?
+  status      String       @default("PENDING")
+  createdAt   DateTime     @default(now())
+
+  donation    FoodDonation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  ngoOrg      Organization @relation("OrgRequests", fields: [ngoOrgId], references: [id], onDelete: Cascade)
+
+  @@index([donationId])
+  @@index([ngoOrgId])
+}
+
+model Pickup {
+  id            String       @id @default(uuid())
+  donationId    String       @unique
+  volunteerId   String?
+  scheduledTime DateTime?
+  startedAt     DateTime?
+  pickedUpAt    DateTime?
+  status        String       @default("ASSIGNED")
+  pickupNotes   String?
+  createdAt     DateTime     @default(now())
+
+  donation      FoodDonation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  volunteer     User?        @relation("VolunteerPickups", fields: [volunteerId], references: [id], onDelete: SetNull)
+  delivery      Delivery?
+
+  @@index([volunteerId])
+  @@index([status])
+}
+
+model Delivery {
+  id                String    @id @default(uuid())
+  pickupId          String    @unique
+  destinationAddress String
+  latitude          Float
+  longitude         Float
+  deliveredAt       DateTime?
+  proofImageUrl     String?
+  receiverName      String?
+  deliveredQuantity Float?
+  deliveryNotes     String?
+  status            String    @default("ON_WAY_TO_DESTINATION")
+  createdAt         DateTime  @default(now())
+
+  pickup            Pickup    @relation(fields: [pickupId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("SYSTEM")
+  isRead    Boolean  @default(false)
+  dataJson  String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  action      String
+  entityType  String
+  entityId    String?
+  detailsJson String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([action])
+  @@index([createdAt])
+  @@index([entityType])
+}
+
+model Review {
+  id          String       @id @default(uuid())
+  donationId  String
+  reviewerId  String
+  rating      Int          @default(5)
+  comment     String?
+  createdAt   DateTime     @default(now())
+
+  donation    FoodDonation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  reviewer    User         @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+}
+
+model IssueReport {
+  id          String        @id @default(uuid())
+  reporterId  String
+  donationId  String?
+  subject     String
+  description String
+  priority    String        @default("NORMAL")
+  status      String        @default("OPEN")
+  createdAt   DateTime      @default(now())
+
+  reporter    User          @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  donation    FoodDonation? @relation(fields: [donationId], references: [id], onDelete: SetNull)
+}

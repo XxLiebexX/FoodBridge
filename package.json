@@ -1,0 +1,33 @@
+{
+  "name": "foodbridge-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-Powered Food Waste Reduction & Hunger Management Platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace=apps/api run dev",
+    "dev:web": "npm --workspace=apps/web run dev",
+    "dev:ml": "cd apps/ml-service && python3 main.py",
+    "build:shared": "npm --workspace=packages/shared run build",
+    "build:api": "npm --workspace=apps/api run build",
+    "build:web": "npm --workspace=apps/web run build",
+    "build": "npm run build:shared && npm run build:api && npm run build:web",
+    "start:api": "node apps/api/dist/server.js",
+    "start:web": "npm --workspace=apps/web run start",
+    "db:generate": "npx prisma generate",
+    "db:push": "npx prisma db push",
+    "db:seed": "npx ts-node --compiler-options '{\"module\":\"commonjs\"}' prisma/seed.ts",
+    "db:clean": "npx ts-node --compiler-options '{\"module\":\"commonjs\"}' prisma/clean.ts",
+    "test:api": "npm --workspace=apps/api run test",
+    "test:ml": "cd apps/ml-service && pytest",
+    "test": "npm run test:api"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}
