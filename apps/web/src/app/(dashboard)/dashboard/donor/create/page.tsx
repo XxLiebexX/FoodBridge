@@ -13,7 +13,7 @@ import {
   DietaryType,
   PackagingStatus,
   ALLERGEN_OPTIONS
-} from '@foodbridge/shared';
+} from '../../../../../lib/shared';
 import { Sparkles, MapPin, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function CreateDonationPage() {

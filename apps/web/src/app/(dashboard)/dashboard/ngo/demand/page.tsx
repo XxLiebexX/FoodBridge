@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '../../../../../lib/api';
 import { Button } from '../../../../../components/ui/Button';
 import { StatusBadge } from '../../../../../components/ui/Badge';
-import { FoodCategory, QuantityUnit, UrgencyLevel } from '@foodbridge/shared';
+import { FoodCategory, QuantityUnit, UrgencyLevel } from '../../../../../lib/shared';
 import { HeartHandshake, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function NGODemandPage() {
